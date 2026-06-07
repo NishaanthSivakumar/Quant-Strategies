@@ -1,4 +1,4 @@
-# Quant Strategies — 10 Weeks, 10 Backtests (Summer 20026)
+# Quant Strategies — 10 Weeks, 10 Backtests (Summer 2026)
 
 A weekly series of quantitative trading strategies, implemented from scratch in Python, with honest write-ups of what worked and what didn't.
 
