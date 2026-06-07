@@ -33,7 +33,6 @@ quant-strategies/
 ├── requirements.txt       ← shared dependencies
 ├── week-01-ma-crossover/  ← one folder per strategy
 │   ├── README.md          ← writeup
-│   ├── notebook.ipynb     ← exploration
 │   ├── strategy.py        ← clean implementation
 │   └── results/           ← equity curve, trades, metrics
 └── ...
