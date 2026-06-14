@@ -1,0 +1,13 @@
+# Core data stack
+pandas
+numpy
+
+# Price data
+yfinance
+
+# Plotting
+matplotlib
+
+# Statistics (used from week 3 onward for significance tests, time series, etc.)
+scipy
+statsmodels

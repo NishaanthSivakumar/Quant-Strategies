@@ -11,7 +11,7 @@ Built as preparation for quant trading internships. The goal isn't to find alpha
 | #  | Strategy                        | Asset(s) | Result          |
 |----|---------------------------------|----------|-----------------|
 | 01 | Moving Average Crossover (10/50)| SPY      | Lost vs B&H     |
-| 02 | RSI Mean Reversion              | TBD      | —               |
+| 02 | RSI Mean Reversion              | AAPL     | Lost vs B&H     |
 | 03 | TBD                             | —        | —               |
 | 04 | TBD                             | —        | —               |
 | 05 | TBD                             | —        | —               |
@@ -38,7 +38,7 @@ quant-strategies/
 └── ...
 ```
 
-Each week's folder is self-contained — clone the repo, install requirements, and any week's notebook should run end-to-end.
+Each week's folder is self-contained — clone the repo, install requirements, and run `python strategy.py` from inside the folder.
 
 ---
 
@@ -64,7 +64,6 @@ If a strategy loses, the writeup explains *why* — late entries, whipsaw losses
 - **yfinance** — price data
 - **matplotlib** — equity curves and diagnostics
 - **statsmodels, scipy** — statistical tests where relevant
-- **Jupyter** — exploration
 
 Install everything with:
 
@@ -80,6 +79,8 @@ pip install -r requirements.txt
 git clone https://github.com/<your-username>/quant-strategies.git
 cd quant-strategies
 pip install -r requirements.txt
+cd week-02-rsi-reversion
+python strategy.py
 ```
 
 Price data is fetched on demand via `yfinance`, so no large datasets are committed to the repo.
@@ -92,5 +93,4 @@ I'm building toward quant trading internships and publishing one strategy a week
 
 ---
 
-*Last updated: Week 1 complete. Series in progress.*
-
+*Last updated: Week 2 complete. Series in progress.*
