@@ -52,10 +52,6 @@ data/cache/
 *.pickle
 *.pkl
 
-# Large CSVs — but allow small sample/result CSVs inside results/ folders
-*.csv
-!**/results/*.csv
-!**/sample/*.csv
 
 # ============================================================
 # Outputs — keep results PNGs in repo (small, useful for READMEs)
@@ -117,9 +113,3 @@ desktop.ini
 *.key
 secrets.yaml
 credentials.json
-
-# ============================================================
-# Misc
-# ============================================================
-__pycache__/
-*.py[cod]
