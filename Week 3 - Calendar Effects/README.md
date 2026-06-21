@@ -1,140 +1,62 @@
 # Week 3 — Day-of-Week (Calendar) Effect
 
-Does the day of the week predict stock returns? This week tests the classic
-"Monday effect" / "Friday effect" claim from the finance literature — not on
-one ticker, but across five — and asks whether any effect that shows up is
-big enough to survive transaction costs.
+Does the day of the week predict stock returns? Tests the classic Monday/Friday effect claim across five tickers and asks whether anything found is real enough to trade.
 
 ## The strategy
 
-The calendar effect is one of the oldest documented "anomalies" in finance:
+The calendar effect is one of the oldest documented "anomalies" in finance — older studies claim Mondays are unusually weak and Fridays unusually strong.
 
-> Average returns are not uniform across the trading week. Older studies
-> claim Mondays are unusually weak (the "Monday effect") and the day before
-> the weekend is unusually strong.
+This week tests it directly:
 
-This week tests that directly:
-
-1. Pull daily returns for a basket of tickers.
-2. Group returns by day of week (Monday–Friday) and compare means.
-3. Run a one-way ANOVA across the five groups, plus a t-test on the
-   best-vs-worst day, to check whether any spread is statistically real
-   or just noise.
-4. If a "best day" exists in-sample, build the simplest possible rule
-   around it — long only on that day, flat otherwise — and backtest it
-   against buy-and-hold, with costs included.
-
-The point isn't to find a profitable trick. It's to test a textbook claim
-honestly: is the effect real, is it consistent across assets, and does it
-survive the cost of acting on it.
+1. Pull daily returns for SPY, QQQ, AAPL, MSFT, GLD (2015–2024).
+2. Group returns by day of week and compare means.
+3. Run a one-way ANOVA + best-vs-worst t-test to check whether any spread is statistically real.
+4. Build the simplest possible rule (long on the best day only, flat otherwise), backtest with costs.
 
 ## Methodology
 
-Same discipline as Weeks 1–2, applied to a statistical question instead of
-a technical indicator:
-
-- **Signal timing.** The day-of-week label for day *t* is known in advance
-  (it's a calendar fact, not a lagging indicator), but the position is still
-  shifted one day before being multiplied by returns, so the backtest never
-  uses day *t*'s return to decide day *t*'s position contamination from
-  same-day execution assumptions.
-- **Transaction costs.** 5 bps per trade, same as Week 1 and Week 2.
-- **Statistical significance, not just point estimates.** A "best day" with
-  a 0.3% higher mean return than the worst day means nothing if a one-way
-  ANOVA across all five days returns a p-value of 0.6. This week reports the
-  ANOVA F-stat and p-value alongside the raw means, and flags whether the
-  result clears p < 0.05.
-- **Multiple tickers, tested independently.** A calendar effect that only
-  shows up in one ticker is more likely sampling noise than a real anomaly.
-  Testing SPY, QQQ, AAPL, MSFT, and GLD together checks whether any pattern
-  recurs across assets or is ticker-specific.
-- **No parameter optimization.** The "best day" is whatever the data says
-  in-sample — there's no search over thresholds or lookback windows.
-- **Benchmark comparison is mandatory.** Strategy returns are reported
-  against buy-and-hold on the same ticker, not in isolation.
-- **Limitations stated explicitly** — see below.
+- 5 bps per trade transaction cost, same as Weeks 1–2.
+- ANOVA p-value reported alongside raw means — point estimates without a significance test are meaningless.
+- Five tickers tested independently — a calendar effect that only appears in one is more likely noise than a real anomaly.
+- No parameter optimization. "Best day" is whatever the data says in-sample.
+- Benchmark: buy-and-hold the same ticker over the same window.
 
 ## Results
 
-> **⚠️ Numbers below are placeholders.** This sandbox's network egress
-> doesn't allow outbound calls to Yahoo Finance, so I verified the pipeline
-> end-to-end against synthetic price data (confirmed: data loads, the ANOVA
-> test runs, the backtest produces sane equity curves, metrics compute
-> without errors) but didn't generate real results. Run
-> `python strategy.py` locally and replace this table and the two PNGs per
-> ticker with the actual output.
+| Ticker | Best day  | ANOVA p-value | Significant? | Strategy total return | B&H total return | Strategy Sharpe | B&H Sharpe |
+|--------|-----------|---------------|---------------|------------------------|-------------------|------------------|------------|
+| SPY    | Wednesday | 0.99          | No            | -31.5%                 | +240.8%           | -0.43            | 0.79       |
+| QQQ    | Wednesday | 0.77          | No            | -27.7%                 | +441.2%           | -0.27            | 0.89       |
+| AAPL   | Monday    | 0.17          | No            | +49.9%                 | +935.9%           | 0.41             | 0.97       |
+| MSFT   | Wednesday | 0.78          | No            | -15.2%                 | +958.0%           | -0.08            | 1.01       |
+| GLD    | Friday    | 0.72          | No            | -50.3%                 | +110.9%           | -1.07            | 0.60       |
 
-| Ticker | Best day (in-sample) | ANOVA p-value | Significant? | Strategy total return | B&H total return | Strategy Sharpe | B&H Sharpe |
-|--------|----------------------|----------------|---------------|------------------------|-------------------|------------------|------------|
-| SPY    | TBD                  | TBD            | TBD           | TBD                    | TBD                | TBD              | TBD        |
-| QQQ    | TBD                  | TBD            | TBD           | TBD                    | TBD                | TBD              | TBD        |
-| AAPL   | TBD                  | TBD            | TBD           | TBD                    | TBD                | TBD              | TBD        |
-| MSFT   | TBD                  | TBD            | TBD           | TBD                    | TBD                | TBD              | TBD        |
-| GLD    | TBD                  | TBD            | TBD           | TBD                    | TBD                | TBD              | TBD        |
+> **[Insert per-ticker day-of-week bar charts and equity curves here]**
 
-> **[Insert per-ticker day-of-week bar chart and equity curve here]**
+**No ticker showed a statistically significant day-of-week effect.** AAPL had the lowest p-value at 0.17 — still well above the 0.05 threshold. The "best day" varies across the basket (Wednesday for three tickers, Monday for one, Friday for one), which is the pattern you'd expect from sampling noise, not a real anomaly.
 
-## What I expect, going in
+The strategy underperformed buy-and-hold on every ticker, in both total return and Sharpe. With ~20% time in market and no statistically significant edge, that's the arithmetically expected outcome — most of the gap is opportunity cost, not bad trades.
 
-Worth writing down a prediction *before* running it, so the writeup isn't
-just retrofitted to whatever number comes out:
-
-- I expect the ANOVA to come back **not significant** for most or all of
-  these five tickers over a 2015–2024 window. The Monday effect was
-  documented mainly in pre-1990s US equity data; multiple studies since
-  have found it's weakened or disappeared, plausibly because once an
-  anomaly is published, capital flows in to arbitrage it away.
-- If something *does* come back significant, I'd treat that with more
-  suspicion than excitement — five tickers tested independently means a
-  roughly 1-in-4 chance that at least one clears p < 0.05 purely by chance,
-  even if there's no real effect anywhere (multiple-comparisons problem).
-  A single significant ticker out of five is weaker evidence than it looks.
-- Even in a world where the ANOVA is significant, the long-only-one-day
-  rule only trades ~20% of the time (1 of 5 weekdays), so costs are low,
-  but so is the return ceiling — this isn't a strategy designed to beat
-  buy-and-hold on raw return, it's designed to test whether the underlying
-  statistical claim is real.
-
-*(This section gets replaced with what actually happened once the script
-is run with real data — keeping the prediction visible either way, since a
-miss is as informative as a hit.)*
+The Monday effect that 1970s finance papers found in US equities doesn't show up in 2015–2024 data — at least not on this basket and not at p < 0.05. Detailed analysis in the Medium write-up.
 
 ## Limitations
 
-- **Multiple comparisons.** Testing 5 tickers × 1 ANOVA each raises the
-  chance of a false positive somewhere in the table. A Bonferroni-style
-  correction (effectively requiring p < 0.01 instead of p < 0.05 to call
-  something significant) would be the more rigorous bar; not applied here,
-  flagged instead.
-- **In-sample day selection.** The "best day" is chosen and traded on the
-  same data — there's no train/test split. A real test of whether this is
-  tradeable would fit the best day on the first half of the window and
-  check whether it still holds in the second half. Worth doing as a
-  follow-up if any ticker's ANOVA comes back significant.
-- **Survivorship and adjustment.** Prices are split/dividend-adjusted via
-  `yfinance`'s `auto_adjust=True`, which handles the obvious data issue but
-  doesn't address survivorship bias for the equity tickers (AAPL, MSFT)
-  over a 10-year window — both happen to still exist and be index
-  constituents today, which is itself a selection effect.
-- **US market hours / holidays.** Day-of-week labels come from the
-  Yahoo Finance trading calendar; short weeks around holidays aren't
-  treated specially, which slightly thins some Monday/Friday samples.
+- **Multiple comparisons.** 5 ANOVAs inflates the chance of a false positive. Moot here since nothing was significant, but worth flagging.
+- **In-sample day selection.** "Best day" is chosen and traded on the same data. A train/test split would be the more rigorous test.
+- **Basket isn't independent.** Four of five tickers are US equities; SPY/QQQ overlap heavily with AAPL/MSFT.
 
 ## Repository layout
 
 ```
 week-03-calendar-effects/
-├── README.md                      ← this file
-├── strategy.py                    ← data, stats test, backtest, plots
-├── {TICKER}_dow_summary.csv       ← per-ticker mean/std/n by day of week
-├── {TICKER}_dow_means.png         ← bar chart of annualized mean return by day
-├── {TICKER}_backtest.csv          ← full daily backtest output
-├── {TICKER}_equity_curve.png      ← strategy vs. buy-and-hold
-└── overview_all_tickers.csv       ← one row per ticker, the summary table above
+├── README.md
+├── strategy.py
+├── {TICKER}_dow_summary.csv      ← mean/std/n return by day of week
+├── {TICKER}_dow_means.png        ← bar chart of annualized mean by day
+├── {TICKER}_backtest.csv         ← full daily backtest output
+├── {TICKER}_equity_curve.png     ← strategy vs. buy-and-hold
+└── overview_all_tickers.csv      ← the summary table above
 ```
-
-No `notebook.ipynb` and no separate `results/` folder this week — consistent
-with the script-only, flat-output convention adopted from Week 2 onward.
 
 ## Running this week
 
@@ -143,26 +65,12 @@ cd week-03-calendar-effects
 python strategy.py
 ```
 
-Optional flags to test a different basket or date range:
+Optional flags to test a different basket or window:
 
 ```bash
 python strategy.py --tickers SPY IWM EFA --start 2010-01-01 --end 2024-12-31
 ```
 
-Price data is fetched on demand via `yfinance` — nothing large is committed
-to the repo.
-
-## Tech stack
-
-Same as the rest of the series, with `scipy` actually put to use for the
-first time (the ANOVA and t-tests):
-
-- **pandas, numpy** — data manipulation
-- **yfinance** — price data
-- **matplotlib** — bar charts and equity curves
-- **scipy** — `f_oneway` (ANOVA) and `ttest_ind` for significance testing
-
 ---
 
-*Part of the [Quant Strategies](../README.md) series — one backtest a week,
-honest results either way.*
+*Part of the [Quant Strategies](../README.md) series — one backtest a week, honest results either way.*
