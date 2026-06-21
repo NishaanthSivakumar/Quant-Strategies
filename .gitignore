@@ -113,3 +113,4 @@ desktop.ini
 *.key
 secrets.yaml
 credentials.json
+*.csv
