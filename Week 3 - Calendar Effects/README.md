@@ -25,17 +25,17 @@ This week tests it directly:
 
 | Ticker | Best day  | ANOVA p-value | Significant? | Strategy total return | B&H total return | Strategy Sharpe | B&H Sharpe |
 |--------|-----------|---------------|---------------|------------------------|-------------------|------------------|------------|
-| SPY    | Wednesday | 0.99          | No            | -31.5%                 | +240.8%           | -0.43            | 0.79       |
-| QQQ    | Wednesday | 0.77          | No            | -27.7%                 | +441.2%           | -0.27            | 0.89       |
-| AAPL   | Monday    | 0.17          | No            | +49.9%                 | +935.9%           | 0.41             | 0.97       |
-| MSFT   | Wednesday | 0.78          | No            | -15.2%                 | +958.0%           | -0.08            | 1.01       |
-| GLD    | Friday    | 0.72          | No            | -50.3%                 | +110.9%           | -1.07            | 0.60       |
+| SPY    | Wednesday | 0.99          | No            | -16.5%                 | +240.8%           | -0.20            | 0.79       |
+| QQQ    | Wednesday | 0.77          | No            | +2.3%                  | +441.2%           | 0.07             | 0.89       |
+| AAPL   | Monday    | 0.17          | No            | +69.1%                 | +935.9%           | 0.47             | 0.97       |
+| MSFT   | Wednesday | 0.78          | No            | +43.2%                 | +958.0%           | 0.35             | 1.01       |
+| GLD    | Friday    | 0.72          | No            | -18.9%                 | +110.9%           | -0.28            | 0.60       |
 
 > **[Insert per-ticker day-of-week bar charts and equity curves here]**
 
 **No ticker showed a statistically significant day-of-week effect.** AAPL had the lowest p-value at 0.17 — still well above the 0.05 threshold. The "best day" varies across the basket (Wednesday for three tickers, Monday for one, Friday for one), which is the pattern you'd expect from sampling noise, not a real anomaly.
 
-The strategy underperformed buy-and-hold on every ticker, in both total return and Sharpe. With ~20% time in market and no statistically significant edge, that's the arithmetically expected outcome — most of the gap is opportunity cost, not bad trades.
+The strategy underperformed buy-and-hold on every ticker, in both total return and Sharpe. Three of five tickers (QQQ, AAPL, MSFT) produced positive strategy returns in absolute terms, but the opportunity cost of sitting out 80% of trading days crushed them all — AAPL's +69.1% shrinks next to buy-and-hold's +935.9%. That's the arithmetically expected outcome of a 20%-time-in-market rule with no statistically significant edge.
 
 The Monday effect that 1970s finance papers found in US equities doesn't show up in 2015–2024 data — at least not on this basket and not at p < 0.05. Detailed analysis in the Medium write-up.
 

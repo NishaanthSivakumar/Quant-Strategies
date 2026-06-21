@@ -152,10 +152,9 @@ def backtest(df: pd.DataFrame, positions: pd.Series, cost_bps: float = TRANSACTI
     result["position"] = positions
     result["trade"] = result["position"].diff().abs().fillna(0)
 
-    lagged_position = result["position"].shift(1).fillna(0)
-    cost = result["trade"].shift(1).fillna(0) * (cost_bps / 10_000)
+    cost = result["trade"] * (cost_bps / 10_000)
 
-    result["strategy_returns"] = lagged_position * result["returns"] - cost
+    result["strategy_returns"] = result["position"] * result["returns"] - cost
     result["benchmark_returns"] = result["returns"]
 
     result["strategy_equity"] = INITIAL_CAPITAL * (1 + result["strategy_returns"]).cumprod()
