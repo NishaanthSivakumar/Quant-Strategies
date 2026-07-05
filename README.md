@@ -76,7 +76,7 @@ pip install -r requirements.txt
 ## Running a week
 
 ```bash
-git clone https://github.com/<your-username>/quant-strategies.git
+git clone https://github.com/<NishaanthSivakumar>/quant-strategies.git
 cd quant-strategies
 pip install -r requirements.txt
 cd week-05-pead
