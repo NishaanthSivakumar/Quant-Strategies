@@ -29,9 +29,8 @@ Honesty notes (why this is the "hard" week)
 * Results are reported OUT-OF-SAMPLE ONLY. In-sample accuracy on a Random Forest
   is near-meaningless (it can memorise the training set).
 * Directional accuracy near 50% is the honest expectation. A model that clears
-  ~52-54% out-of-sample after costs is already doing something. If you see performance substantially 
-  higher than that on daily equity index data, the first assumption should be data leakage—not that 
-  you’ve discovered an exceptional model.
+  ~52-54% out-of-sample after costs is already doing something. Anything much
+  higher on daily equity-index data usually means a leak — go hunting for it.
 
 Usage
 -----
@@ -379,10 +378,22 @@ def main():
     p.add_argument("--long-short", action="store_true",
                    help="short on down predictions instead of going to cash")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--outdir", default=None, help="directory to save outputs (default: ./outputs/<ticker>)")
+    p.add_argument("--outdir", default=None,
+                   help="output directory; default = the folder this script "
+                        "lives in. Relative paths are resolved against that "
+                        "folder, so outputs never leak into the repo root.")
     args = p.parse_args()
 
-    outdir = args.outdir
+    # Anchor outputs to the script's own folder, not the current working
+    # directory. Running `python week-07-ml-classifier/strategy.py` from the
+    # repo root will still write results into week-07-ml-classifier/.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if args.outdir is None:
+        outdir = script_dir                       # save directly in this folder
+    elif os.path.isabs(args.outdir):
+        outdir = args.outdir                      # honour absolute paths as-is
+    else:
+        outdir = os.path.join(script_dir, args.outdir)  # relative -> under folder
     os.makedirs(outdir, exist_ok=True)
 
     print(f"\n{'='*60}")
