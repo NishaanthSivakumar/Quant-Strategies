@@ -379,7 +379,7 @@ def main():
     p.add_argument("--long-short", action="store_true",
                    help="short on down predictions instead of going to cash")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--outdir", default="results")
+    p.add_argument("--outdir", default=None, help="directory to save outputs (default: ./outputs/<ticker>)")
     args = p.parse_args()
 
     outdir = args.outdir
