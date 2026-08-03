@@ -421,7 +421,7 @@ def forecast_diagnostics(df):
     var_f = d["sigma_next"] ** 2
     proxy = d["realised"] ** 2
     naive = (d["ret"].rolling(21).std().shift(1) ** 2).reindex(d.index)
-    valid = naive.notna() & (naive > 0) & (var_f > 0)
+    valid = naive.notna() & (naive > 0) & (var_f > 0) & (proxy > 0)
 
     def qlike(v):
         return float(np.mean(proxy[valid] / v[valid] - np.log(proxy[valid] / v[valid]) - 1.0))
