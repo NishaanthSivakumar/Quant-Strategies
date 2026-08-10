@@ -2,10 +2,6 @@
 Week 9 — Pairs Trading / Cointegration
 ======================================
 
-Weeks 7 and 8 both tried to forecast the market and both failed to beat
-buy-and-hold. This week does not forecast anything. It bets that a
-*relationship* between two assets holds, and trades the deviation.
-
 Hypothesis
 ----------
 If two assets are cointegrated, the spread between them is stationary. When
@@ -237,12 +233,21 @@ def fit_pair(logp, a, b, f0, f1, maxlag, run_coint=True):
 
 
 def usable(fit, cfg):
-    """Reject degenerate hedge ratios and dead spreads."""
+    """Reject degenerate hedge ratios and dead spreads.
+
+    A negative beta is rejected outright, not on its absolute value. Beta < 0
+    means the OLS fit wants BOTH legs long, which is a levered directional bet
+    rather than a hedged pair: the market exposure of the two legs adds instead
+    of cancelling, and the resulting "spread" has no economic interpretation.
+    The first version of this filter tested |beta| and let them through.
+    """
     if not np.isfinite(fit["beta"]) or not np.isfinite(fit["sigma"]):
         return False
     if fit["sigma"] <= 1e-8:
         return False
-    return cfg.beta_min <= abs(fit["beta"]) <= cfg.beta_max
+    if fit["beta"] <= 0:
+        return False
+    return cfg.beta_min <= fit["beta"] <= cfg.beta_max
 
 
 def select_pairs(logp, rets, f0, f1, candidates, cfg, method, rng):
@@ -291,6 +296,10 @@ def run_backtest(px, cfg, method="coint", seed=0):
     rng = np.random.default_rng(seed)
 
     weights = np.zeros((n, k_assets))
+    # Counted explicitly rather than inferred from non-zero weight columns:
+    # two pairs sharing a leg occupy 3 columns, not 4, so the column count
+    # undercounts and produces spurious half-pairs.
+    pair_count = np.zeros(n)
     trades, selections, quality, z_blocks = [], [], [], {}
 
     for i0 in range(cfg.formation, n, cfg.trading):
@@ -303,7 +312,11 @@ def run_backtest(px, cfg, method="coint", seed=0):
         if not picks:
             continue
 
-        k = len(picks)
+        # Size at 1/top_n, NOT 1/len(picks). If fewer than top_n pairs pass the
+        # filter, the shortfall stays in cash. Dividing by len(picks) silently
+        # concentrated the whole book into a single spread whenever only one
+        # pair qualified, which is where the fat left tail came from.
+        k = cfg.top_n
         block_start = dates[i0]
         for p in picks:
             selections.append(
@@ -378,6 +391,7 @@ def run_backtest(px, cfg, method="coint", seed=0):
                 if s["pos"] != 0:
                     weights[t, p["a"]] += s["pos"] * p["ua"] / k
                     weights[t, p["b"]] += s["pos"] * p["ub"] / k
+                    pair_count[t] += 1
 
         # Out-of-sample relationship quality, scored regardless of P&L.
         # Two windows: the block itself (what was traded, but underpowered) and
@@ -419,6 +433,7 @@ def run_backtest(px, cfg, method="coint", seed=0):
     weights = pd.DataFrame(weights, index=dates, columns=tickers)
     return {
         "weights": weights,
+        "active_pairs": pd.Series(pair_count, index=dates),
         "returns": px.pct_change().fillna(0.0),
         "trades": pd.DataFrame(trades),
         "selections": pd.DataFrame(selections),
@@ -427,7 +442,7 @@ def run_backtest(px, cfg, method="coint", seed=0):
     }
 
 
-def portfolio_series(weights, rets, cost_bps, cash_yield=0.0):
+def portfolio_series(weights, rets, cost_bps, cash_yield=0.0, active_pairs=None):
     """Turn a weight path into daily gross/net returns. Position lags one day."""
     lagged = weights.shift(1).fillna(0.0)
     gross = (lagged * rets).sum(axis=1)
@@ -451,7 +466,11 @@ def portfolio_series(weights, rets, cost_bps, cash_yield=0.0):
             "net_exposure": lagged.sum(axis=1),
             "long_leg_return": (lagged.clip(lower=0.0) * rets).sum(axis=1),
             "short_leg_return": (lagged.clip(upper=0.0) * rets).sum(axis=1),
-            "active_pairs": (lagged.abs() > 1e-12).sum(axis=1) / 2.0,
+            "active_pairs": (
+                active_pairs.shift(1).fillna(0.0)
+                if active_pairs is not None
+                else (lagged.abs() > 1e-12).sum(axis=1) / 2.0
+            ),
         }
     )
 
@@ -702,7 +721,9 @@ def main(argv=None):
 
     result = run_backtest(px, cfg, method="coint", seed=cfg.seed)
     rets = result["returns"]
-    daily = portfolio_series(result["weights"], rets, cfg.cost_bps, cfg.cash_yield)
+    daily = portfolio_series(
+        result["weights"], rets, cfg.cost_bps, cfg.cash_yield, result["active_pairs"]
+    )
 
     variants = {"cointegration (strategy)": daily}
     decomposition = []
@@ -722,7 +743,9 @@ def main(argv=None):
     if not cfg.skip_controls:
         for label, method in [("correlation-selected", "corr"), ("random pairs", "random")]:
             ctrl = run_backtest(px, cfg, method=method, seed=cfg.seed)
-            frame = portfolio_series(ctrl["weights"], rets, cfg.cost_bps, cfg.cash_yield)
+            frame = portfolio_series(
+                ctrl["weights"], rets, cfg.cost_bps, cfg.cash_yield, ctrl["active_pairs"]
+            )
             variants[label] = frame
             add_row(label, frame, ctrl["trades"])
 
