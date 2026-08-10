@@ -19,6 +19,17 @@ identical machinery and only the pair-selection rule changed:
     corr    — pairs with the highest return correlation     [control]
     random  — pairs drawn at random from the same universe  [control]
 
+The random control is a *sample*, not a single number. One draw can land
+anywhere in a wide band, so a single seed showing random beating (or losing to)
+the strategy is a sampling artifact, not a result. It is therefore run
+`--random-seeds` times and reported as a distribution in `random_control.csv`,
+with the strategy's position inside that distribution in
+`random_control_summary.csv`. The default of 50 draws is a runtime compromise:
+the percentile estimate has a standard error of about 12 points at 12 draws,
+6 points at 50, and 3 points at 100, so 50 is enough to distinguish "middle of
+the pack" from "clearly better or worse" and not enough to quote to the
+percentage point. Quote it as a band, not a figure.
+
 This is the same decomposition logic as Week 4 (relative vs absolute momentum)
 and Week 8 (ARIMA direction vs GARCH sizing): isolate the component that is
 supposed to be doing the work and check whether it actually is.
@@ -572,7 +583,7 @@ def trade_stats(trades):
 # --------------------------------------------------------------------------
 # Charts
 # --------------------------------------------------------------------------
-def save_charts(daily, bench, result, variants, cfg):
+def save_charts(daily, bench, result, variants, cfg, random_curves=None):
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     eq_s = (1.0 + daily["net_return"]).cumprod()
@@ -602,9 +613,21 @@ def save_charts(daily, bench, result, variants, cfg):
     plt.close(fig)
 
     fig, ax = plt.subplots(figsize=(11, 6))
+    if random_curves:
+        for i, curve in enumerate(random_curves):
+            ax.plot(
+                curve.index,
+                curve,
+                lw=0.9,
+                color="grey",
+                alpha=0.45,
+                label=f"random pairs ({len(random_curves)} seeds)" if i == 0 else None,
+            )
     for name, frame in variants.items():
+        if name.startswith("random pairs"):
+            continue
         curve = (1.0 + frame["net_return"]).cumprod()
-        ax.plot(curve.index, curve, lw=1.3, label=name)
+        ax.plot(curve.index, curve, lw=1.6, label=name, zorder=3)
     ax.set_title("Does cointegration selection add anything? (all net of costs)")
     ax.set_ylabel("Growth of $1")
     ax.legend()
@@ -701,6 +724,12 @@ def parse_args(argv=None):
     p.add_argument("--cash-yield", type=float, default=0.0, help="annual yield on idle capital")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--skip-controls", action="store_true")
+    p.add_argument(
+        "--random-seeds",
+        type=int,
+        default=50,
+        help="draws of the random-pair control, reported as a distribution",
+    )
     p.add_argument("--cache", action="store_true", help="reuse results/prices_cache.csv")
     cfg = p.parse_args(argv)
     if cfg.max_hold is None:
@@ -741,13 +770,59 @@ def main(argv=None):
     add_row("cointegration, zero cost", portfolio_series(result["weights"], rets, 0.0, cfg.cash_yield))
 
     if not cfg.skip_controls:
-        for label, method in [("correlation-selected", "corr"), ("random pairs", "random")]:
-            ctrl = run_backtest(px, cfg, method=method, seed=cfg.seed)
-            frame = portfolio_series(
-                ctrl["weights"], rets, cfg.cost_bps, cfg.cash_yield, ctrl["active_pairs"]
+        ctrl = run_backtest(px, cfg, method="corr", seed=cfg.seed)
+        frame = portfolio_series(
+            ctrl["weights"], rets, cfg.cost_bps, cfg.cash_yield, ctrl["active_pairs"]
+        )
+        variants["correlation-selected"] = frame
+        add_row("correlation-selected", frame, ctrl["trades"])
+
+        # The random control is a SAMPLE, not a number. A single draw can land
+        # anywhere in a wide band, so reporting one seed invites reading a
+        # sampling artifact as a result. Run --random-seeds draws and report
+        # where the strategy falls inside that distribution.
+        draws, random_curves = [], []
+        for i in range(cfg.random_seeds):
+            rnd = run_backtest(px, cfg, method="random", seed=cfg.seed + i)
+            rframe = portfolio_series(
+                rnd["weights"], rets, cfg.cost_bps, cfg.cash_yield, rnd["active_pairs"]
             )
-            variants[label] = frame
-            add_row(label, frame, ctrl["trades"])
+            rm = perf_metrics(rframe["net_return"], bench)
+            rm["seed"] = cfg.seed + i
+            rm["ann_turnover"] = float(rframe["turnover"].mean() * TRADING_DAYS)
+            rm.update(trade_stats(rnd["trades"]))
+            draws.append(rm)
+            random_curves.append((1.0 + rframe["net_return"]).cumprod())
+            if i == 0:
+                variants[f"random pairs (seed {cfg.seed})"] = rframe
+                add_row(f"random pairs (seed {cfg.seed})", rframe, rnd["trades"])
+
+        random_draws = pd.DataFrame(draws)
+        random_draws.to_csv(os.path.join(RESULTS_DIR, "random_control.csv"), index=False)
+
+        strat_cagr = perf_metrics(daily["net_return"])["cagr"]
+        strat_sharpe = perf_metrics(daily["net_return"])["sharpe"]
+        random_summary = {
+            "n_seeds": cfg.random_seeds,
+            "random_cagr_mean": float(random_draws["cagr"].mean()),
+            "random_cagr_sd": float(random_draws["cagr"].std(ddof=1)),
+            "random_cagr_min": float(random_draws["cagr"].min()),
+            "random_cagr_max": float(random_draws["cagr"].max()),
+            "random_sharpe_mean": float(random_draws["sharpe"].mean()),
+            "strategy_cagr": float(strat_cagr),
+            "strategy_sharpe": float(strat_sharpe),
+            # Where the cointegration strategy sits inside the random band.
+            # ~50% means selection on cointegration is indistinguishable from
+            # drawing pairs at random.
+            "strategy_cagr_percentile": float((random_draws["cagr"] < strat_cagr).mean()),
+            "strategy_sharpe_percentile": float((random_draws["sharpe"] < strat_sharpe).mean()),
+            "strategy_beats_random_seeds": int((random_draws["cagr"] < strat_cagr).sum()),
+        }
+        pd.DataFrame([random_summary]).T.rename(columns={0: "value"}).to_csv(
+            os.path.join(RESULTS_DIR, "random_control_summary.csv"), index_label="metric"
+        )
+    else:
+        random_draws, random_summary, random_curves = None, None, None
 
     add_row(f"buy & hold {cfg.benchmark}", pd.DataFrame({"net_return": bench, "cost": 0.0, "turnover": 0.0}))
 
@@ -803,7 +878,7 @@ def main(argv=None):
     result["trades"].to_csv(os.path.join(RESULTS_DIR, "trades.csv"), index=False)
     result["quality"].to_csv(os.path.join(RESULTS_DIR, "signal_quality.csv"), index=False)
 
-    save_charts(daily, bench, result, variants, cfg)
+    save_charts(daily, bench, result, variants, cfg, random_curves)
 
     # ---- console summary
     sm = perf_metrics(daily["net_return"], bench)
@@ -828,6 +903,14 @@ def main(argv=None):
     row("Convergence rate", metrics.get("convergence_rate", np.nan))
     row("OOS stationarity (fwd)", metrics.get("oos_stationarity_rate_fwd", np.nan))
     row("Ann. cost drag", metrics["ann_cost_drag"])
+    if random_summary is not None:
+        print("-" * 56)
+        print(f"{'Random-pair control':<28}{'(' + str(random_summary['n_seeds']) + ' seeds)':>13}")
+        row("  random CAGR, mean", random_summary["random_cagr_mean"])
+        row("  random CAGR, sd", random_summary["random_cagr_sd"])
+        row("  random CAGR, range lo", random_summary["random_cagr_min"])
+        row("  random CAGR, range hi", random_summary["random_cagr_max"])
+        row("  strategy percentile", random_summary["strategy_cagr_percentile"])
     print("=" * 56)
     print(f"\nOutputs written to {RESULTS_DIR}")
     return 0
