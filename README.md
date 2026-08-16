@@ -4,24 +4,28 @@ A weekly series of quantitative trading strategies, implemented from scratch in 
 
 Built as preparation for quant trading internships. The goal isn't to find alpha — it's to demonstrate clean implementation, rigorous testing, and critical analysis of results, including the losers.
 
+**Status: complete. All ten weeks published.**
+
 ---
 
 ## The series
 
-| #  | Strategy                             | Asset(s)      | Result                        |
-|----|--------------------------------------|---------------|-------------------------------|
-| 01 | Moving Average Crossover (10/50)     | SPY           | Lost vs B&H                   |
-| 02 | RSI Mean Reversion                   | AAPL          | High win rate, lost vs B&H    |
-| 03 | Day-of-Week (Calendar) Effect        | 5 tickers     | Null; lost B&H                |
-| 04 | Dual Momentum (cross-asset)          | SPY, VEU      | Won risk-adj.                 |
-| 05 | Post-Earnings Announcement Drift     | 15 mega-caps  | Null; lost bench.             |
+| #  | Strategy                             | Asset(s)      | Result                          |
+|----|--------------------------------------|---------------|---------------------------------|
+| 01 | Moving Average Crossover (10/50)     | SPY           | Lost vs B&H                     |
+| 02 | RSI Mean Reversion                   | AAPL          | High win rate, lost vs B&H      |
+| 03 | Day-of-Week (Calendar) Effect        | 5 tickers     | Null; lost B&H                  |
+| 04 | Dual Momentum (cross-asset)          | SPY, VEU      | Won risk-adj.                   |
+| 05 | Post-Earnings Announcement Drift     | 15 mega-caps  | Null; lost bench.               |
 | 06 | Volatility Risk Premium              | SPY, VIX      | Won risk-adj.; tail risk intact |
-| 07 | ML Return Prediction (Random Forest) | SPY           | Lost vs B&H                   |
-| 08 | ARIMA + GARCH Forecast               | SPY           | Lost vs B&H; vol model worked |
+| 07 | ML Return Prediction (Random Forest) | SPY           | Lost vs B&H                     |
+| 08 | ARIMA + GARCH Forecast               | SPY           | Lost vs B&H; vol model worked   |
 | 09 | Pairs Trading / Cointegration        | 20 ETFs       | Lost vs B&H; selection ≈ random |
-| 10 | TBD                                  | —             | —                             |
+| 10 | Cross-Sectional Momentum (12-1)      | 137 large caps| Lost vs B&H; not significant    |
 
-*"Result" reports honest outcomes vs. a sensible benchmark — not whether I'd trade it. Week 07's Random Forest cleared a coin flip (51.7% out-of-sample directional accuracy) but fell short of the naive always-long base rate (54.8%). Week 08 split cleanly: the GARCH variance forecast beat the naive benchmark, the ARIMA mean forecast had negative out-of-sample R² and flipped position on a quarter of all days, and the resulting turnover took +445% gross down to +109% net. Week 09 is the sharpest version of the same lesson — the cointegration filter demonstrably found better spreads than random selection (30.7% convergence vs 23.9% ± 3.2% across 50 random draws, more than two standard deviations above), and the trading rule spent the entire benefit on extra stop-outs and 26% more turnover, landing net return in the lower third of the random band.*
+*"Result" reports honest outcomes vs. a sensible benchmark — not whether I'd trade it. Week 07's Random Forest cleared a coin flip (51.7% out-of-sample directional accuracy) but fell short of the naive always-long base rate (54.8%). Week 08 split cleanly: the GARCH variance forecast beat the naive benchmark, the ARIMA mean forecast had negative out-of-sample R² and flipped position on a quarter of all days, and the resulting turnover took +445% gross down to +109% net. Week 09 is the sharpest version of the same lesson — the cointegration filter demonstrably found better spreads than random selection (30.7% convergence vs 23.9% ± 3.2% across 50 random draws, more than two standard deviations above), and the trading rule spent the entire benefit on extra stop-outs and 26% more turnover, landing net return in the lower third of the random band. Week 10 is the only week where the data, not the strategy, is the binding constraint: the momentum ranking ordered deciles almost perfectly in reverse (Spearman −0.94, past losers beating past winners), but the monthly spread carries t = −1.26 and is not distinguishable from zero, and the survivor-only universe beat SPY by roughly 6pp/yr — a bias that removes precisely the companies that belong in a short leg.*
+
+Two of ten strategies beat their benchmark on risk-adjusted terms. That ratio is reported as-is rather than dressed up.
 
 ---
 
@@ -38,6 +42,7 @@ quant-strategies/
 ├── week-07-ml-classifier/
 ├── week-08-arima-garch/
 ├── week-09-pairs-cointegration/
+├── week-10-cross-sectional-momentum/
 ├── requirements.txt
 └── README.md
 ```
@@ -50,20 +55,22 @@ Each week folder contains a single `strategy.py`, a `README.md` leading with the
 
 Every backtest in this repo follows the same rules, so the weeks are comparable to each other:
 
-- **Transaction costs are always charged.** 10 bps per switch from Week 04 onward; Weeks 01–03 used 5 bps, and the discrepancy is left in place rather than retro-fitted so early results stay reproducible against their original write-ups. Weeks 08 and 09 charge 10 bps on *turnover* rather than on discrete switches, because continuous sizing and multi-leg positions rebalance partially — a fourth cost convention in the series, stated rather than silently introduced.
-- **A buy-and-hold benchmark is mandatory.** Every strategy is reported against holding the underlying (or SPY, for multi-asset and market-neutral strategies) over the identical window.
+- **Transaction costs are always charged.** 10 bps per switch from Week 04 onward; Weeks 01–03 used 5 bps, and the discrepancy is left in place rather than retro-fitted so early results stay reproducible against their original write-ups. Weeks 08, 09 and 10 charge 10 bps on *turnover* rather than on discrete switches, because continuous sizing, multi-leg positions and monthly cross-sectional rebalances all turn the book over partially — a fourth cost convention in the series, stated rather than silently introduced.
+- **A buy-and-hold benchmark is mandatory.** Every strategy is reported against holding the underlying (or SPY, for multi-asset and market-neutral strategies) over the identical window. Week 10 adds a second benchmark, the equal-weight universe, because a long-short strategy should be measured against the cross-section it trades and not only against the index.
 - **Risk-adjusted metrics over raw returns.** Sharpe ratio, max drawdown, and Calmar are reported alongside total return.
-- **No parameter optimisation by default.** Textbook defaults are used unless robustness across windows is explicitly tested. Week 09's entry, exit, and stop thresholds are the canonical 2.0 / 0.5 / 4.0 and were not adjusted after seeing the results, even though the resulting payoff geometry is a large part of why the strategy loses.
+- **No parameter optimisation by default.** Textbook defaults are used unless robustness across windows is explicitly tested. Week 09's entry, exit, and stop thresholds are the canonical 2.0 / 0.5 / 4.0 and were not adjusted after seeing the results, even though the resulting payoff geometry is a large part of why the strategy loses. Week 10 reports only the canonical 12-1 formation window; no window scan was run.
 - **Out-of-sample where possible.** For any strategy that learns from data (Week 07 onward), the train/test split is strictly chronological — the model is fit on an early window and evaluated only on a held-out later window, so results never reflect look-ahead. Weeks 08 and 09 use walk-forward refits: parameters are estimated on a trailing window ending at the start of each block, then frozen and filtered forward, so the model never re-estimates using the days it is used to trade. Week 09 additionally verifies this by truncating the price history and confirming the earlier weight path reproduces to zero difference.
-- **Forecast quality is scored separately from P&L.** A strategy can lose money with a good model and make money with a bad one. From Week 08, model accuracy is reported on its own terms (out-of-sample R², directional accuracy vs base rate, QLIKE) before any return figure is discussed. Week 09 extends this to relationship quality: out-of-sample stationarity and half-life are measured independently of whether the trades paid.
+- **Forecast quality is scored separately from P&L.** A strategy can lose money with a good model and make money with a bad one. From Week 08, model accuracy is reported on its own terms (out-of-sample R², directional accuracy vs base rate, QLIKE) before any return figure is discussed. Week 09 extends this to relationship quality: out-of-sample stationarity and half-life are measured independently of whether the trades paid. Week 10 extends it to selection quality: rank information coefficient and decile monotonicity are computed on the cross-section before any equity curve is drawn.
 - **Diagnostics are checked for statistical power before they are interpreted.** Week 09 reports an out-of-sample ADF test on a 252-day forward window rather than the 63-day trading block, because the test rejects a genuinely stationary spread only about 10% of the time at n=63 versus 61% at n=252. A diagnostic that cannot detect the thing it is testing for is not evidence of absence.
 - **Randomised controls are reported as distributions, not single draws.** From Week 09, any control that depends on a random seed is run many times (50 by default) and the strategy's position within that distribution is published. A single seed showing the strategy beating or losing to random selection is a sampling artifact — at 12 draws the percentile estimate has a standard error of roughly 12 points.
-- **Multiple testing is accounted for, or its absence is made explicit.** Week 09 screens 190 candidate pairs per block at p < 0.05, where roughly 9.5 pass by chance alone under a null of no cointegration anywhere. No Bonferroni or FDR correction is applied, and the selected p-values are published alongside the order statistics of 190 uniform draws so the reader can see how close they are.
-- **Limitations are stated explicitly.** Survivorship bias, look-ahead, data quality, cost assumptions, and sample-window bias — flagged, not hidden, and stated in both directions where they cut both ways.
+- **A control must be matched on everything except the variable under test.** Week 10 makes the failure mode explicit: random name selection rebuilds the whole book monthly (3.64x turnover, 10.3% vol) while a momentum ranking is autocorrelated by construction (1.25x turnover, 27.1% vol), so a net-CAGR comparison silently rewards or penalises the strategy for turnover and volatility drag rather than for selection. Week 10 therefore reports the control on gross as well as net, and states the volatility-drag difference (~3.1pp/yr) alongside the percentile.
+- **A large effect is not the same as a significant one.** From Week 10, level results are reported with the standard error of the underlying series. A −11.70% CAGR that rests on a monthly spread with t = −1.26 is a loss, not evidence that the signal is inverted, and the write-up says so. Cross-seed dispersion in a control is sampling noise on a shared price path and is not a substitute for a t-statistic.
+- **Multiple testing is accounted for, or its absence is made explicit.** Week 09 screens 190 candidate pairs per block at p < 0.05, where roughly 9.5 pass by chance alone under a null of no cointegration anywhere.
+- **Limitations are stated explicitly.** Survivorship bias, look-ahead, data quality, and sample-window bias — flagged, not hidden. Week 10 quantifies its own: the equal-weight survivor universe returns 13.96%/yr against 7.97% for SPY, and that ~6pp/yr gap is the size of the bias acting against the strategy's short leg.
 
-If a strategy loses, the writeup explains *why* — late entries, whipsaw losses, regime dependence, cost sensitivity, or an edge too thin to survive transaction costs. And when part of a model works, the writeup isolates which part: Week 08's failure is entirely attributable to the mean forecast rather than the variance forecast, and Week 09's to the trading rule rather than the pair selection. Both decompositions are published alongside the headline loss.
+If a strategy loses, the writeup explains *why* — late entries, whipsaw losses, regime dependence, cost sensitivity, or an edge too thin to survive transaction costs. And when part of a model works, the writeup isolates which part: Week 08's failure is entirely attributable to the mean forecast, not the variance forecast, and the decomposition is published alongside the headline loss.
 
-Where bugs are found after a run, the fix and its effect on the reported numbers are disclosed rather than quietly corrected. Week 09's first run reported −31.46%; three defects in hedge-ratio filtering, position sizing, and a diagnostic counter accounted for roughly 14 points of that, and the corrected run reports −17.31%. No thresholds were changed in the process.
+Bugs found after publication are disclosed along with their effect on the reported numbers, rather than quietly corrected. Week 09's first run reported −31.46% CAGR; three defects accounted for roughly 14 points of that, and both the original figure and the corrected one are in the write-up.
 
 ---
 
@@ -71,25 +78,11 @@ Where bugs are found after a run, the fix and its effect on the reported numbers
 
 Python · pandas · numpy · yfinance · matplotlib · scipy · statsmodels · scikit-learn (Week 07+) · arch (Week 08+)
 
-Install everything with:
-
-```bash
-pip install -r requirements.txt
-```
-
 ---
 
-## Running a week
+## Run times
 
-```bash
-git clone https://github.com/<NishaanthSivakumar>/quant-strategies.git
-cd quant-strategies
-pip install -r requirements.txt
-cd week-09-pairs-cointegration
-python strategy.py
-```
-
-Price, earnings, and volatility data are fetched on demand via `yfinance`, so no large datasets are committed to the repo. Week 09 is the slowest run in the series at roughly 5 minutes — 190 cointegration tests across 54 formation windows, plus 50 random-control draws — and supports `--skip-controls` and `--cache` for faster iteration.
+Most weeks complete in under a minute. Week 09 is the slowest in the series at roughly 5 minutes — 190 cointegration tests across 54 formation windows, plus 50 random-control draws — and supports `--skip-controls` and `--cache` for faster iteration. Week 10 runs 51 full backtests (one strategy plus 50 random-control seeds) over 298 months and caches its price download, so re-runs are substantially faster than the first; use `--random-seeds` to trade control precision for speed.
 
 ---
 
@@ -99,4 +92,4 @@ I'm building toward quant trading internships and publishing one strategy a week
 
 ---
 
-*Last updated: Week 9 complete. One week remaining.*
+*Last updated: Week 10 complete. Series finished.*
